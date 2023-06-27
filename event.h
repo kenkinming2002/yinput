@@ -5,6 +5,7 @@ struct yinput_event
   uint16_t type;
   uint16_t code;
   int32_t  value;
+  uint64_t delay; // in microseconds
 };
 
 //#define EVENT_TYPE_NONE                    0

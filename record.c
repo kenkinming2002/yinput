@@ -7,11 +7,29 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <unistd.h>
 
 #include <libevdev/libevdev.h>
 
 #include "event.h"
+
+static uint64_t time_subtract(struct timeval x, struct timeval y)
+{
+  {
+    time_t tmp = x.tv_sec < y.tv_sec ? x.tv_sec : y.tv_sec;
+    x.tv_sec -= tmp;
+    y.tv_sec -= tmp;
+  }
+
+  {
+    suseconds_t tmp = x.tv_usec < y.tv_usec ? x.tv_usec : y.tv_usec;
+    x.tv_usec -= tmp;
+    y.tv_usec -= tmp;
+  }
+
+  return (y.tv_sec * 1000000 + y.tv_usec) - (x.tv_sec * 1000000 + x.tv_usec);
+}
 
 int record(const char *device_path, const char *file_path)
 {
@@ -23,6 +41,9 @@ int record(const char *device_path, const char *file_path)
   }
 
   FILE *file = fopen(file_path, "w+");
+
+  bool           initial   = true;
+  struct timeval prev_time;
   for(;;)
   {
     struct pollfd fds;
@@ -39,6 +60,15 @@ int record(const char *device_path, const char *file_path)
     yinput_event.type  = input_event.type;
     yinput_event.code  = input_event.code;
     yinput_event.value = input_event.value;
+
+    if(initial)
+    {
+      initial = false;
+      prev_time = input_event.time;
+    }
+    yinput_event.delay = time_subtract(prev_time, input_event.time);
+    prev_time = input_event.time;
+
     fwrite(&yinput_event, sizeof yinput_event, 1, file);
     fflush(file);
   }
