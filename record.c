@@ -1,18 +1,16 @@
-#include <libudev.h>
-#include <libinput.h>
-#include <linux/input-event-codes.h>
-
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <poll.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <unistd.h>
+#include "event.h"
 
 #include <libevdev/libevdev.h>
 
-#include "event.h"
+#include <assert.h>
+#include <errno.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdbool.h>
+
+#include <fcntl.h>
+#include <poll.h>
+#include <unistd.h>
 
 static uint64_t time_subtract(struct timeval x, struct timeval y)
 {
@@ -73,3 +71,4 @@ int record(const char *device_path, const char *file_path)
     fflush(file);
   }
 }
+
