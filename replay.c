@@ -1,20 +1,14 @@
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-
-#include <unistd.h>
-#include <fcntl.h>
-#include <time.h>
-#include <sys/ioctl.h>
-#include <linux/uinput.h>
+#include "event.h"
 
 #include <libevdev/libevdev.h>
 #include <libevdev/libevdev-uinput.h>
 
-#include "event.h"
+#include <assert.h>
+#include <stdio.h>
+
+#include <fcntl.h>
+#include <time.h>
+#include <unistd.h>
 
 int replay(const char *device_path, const char *file_path)
 {
@@ -50,3 +44,4 @@ int replay(const char *device_path, const char *file_path)
 
   return 0;
 }
+
