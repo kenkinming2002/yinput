@@ -1,74 +1,91 @@
-#include "event.h"
+#include "entry.h"
 
-#include <libevdev/libevdev.h>
-
-#include <assert.h>
 #include <errno.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdbool.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
 
 #include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
 
-static uint64_t time_subtract(struct timeval x, struct timeval y)
+int record(const char *file_path)
 {
+  // 1: Open all input devices and setup necessary data structures for polling
+  struct pollfd *fds  = NULL;
+  uint8_t        nfds = 0;
+  for(;;)
   {
-    time_t tmp = x.tv_sec < y.tv_sec ? x.tv_sec : y.tv_sec;
-    x.tv_sec -= tmp;
-    y.tv_sec -= tmp;
+    int length = snprintf(NULL, 0, "/dev/input/event%u", nfds);
+    char *path = malloc(length+1);
+    snprintf(path, length+1, "/dev/input/event%u", nfds);
+
+    int fd = open(path, O_RDONLY | O_NONBLOCK);
+    if(fd == -1) {
+      free(path);
+      break;
+    }
+
+    ++nfds;
+    fds = realloc(fds, nfds * sizeof *fds);
+    fds[nfds-1].fd      = fd;
+    fds[nfds-1].events  = POLLIN;
+    fds[nfds-1].revents = 0;
   }
 
+  if(nfds == 0)
   {
-    suseconds_t tmp = x.tv_usec < y.tv_usec ? x.tv_usec : y.tv_usec;
-    x.tv_usec -= tmp;
-    y.tv_usec -= tmp;
+    fprintf(stderr, "ERROR: No input device detected.\n");
+    fprintf(stderr, "ERROR: Please check that /dev/input/event* is accessible.\n");
+    fprintf(stderr, "ERROR: You may have to add yourself to the input group.\n");
+    return -1;
   }
+  fprintf(stderr, "INFO: input device count = %u\n", nfds);
 
-  return ((uint64_t)y.tv_sec * (uint64_t)1000000 + (uint64_t)y.tv_usec) - ((uint64_t)x.tv_sec * (uint64_t)1000000 + (uint64_t)x.tv_usec);
-}
-
-int record(const char *device_path, const char *file_path)
-{
-  int fd = open(device_path, O_RDWR);
-  struct libevdev *dev;
-  if(libevdev_new_from_fd(fd, &dev) != 0) {
-    fprintf(stderr, "Failed to create evdev device\n");
+  // 2: Open output file
+  int fd = open(file_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  if(fd == -1) {
+    fprintf(stderr, "ERROR: failed to open output file: %s\n", strerror(errno));
     return -1;
   }
 
-  FILE *file = fopen(file_path, "w+");
-
-  bool           initial   = true;
-  struct timeval prev_time;
+  // 3: Loop the loop
   for(;;)
   {
-    struct pollfd fds;
-    fds.fd      = fd;
-    fds.events  = POLLIN;
-    fds.revents = 0;
-    if(poll(&fds, 1, -1) == -1)
+    if(poll(fds, nfds, -1) == -1) {
+      fprintf(stderr, "ERROR: poll() failed: %s\n", strerror(errno));
       return -1;
-
-    struct input_event input_event;
-    libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &input_event);
-
-    struct yinput_event yinput_event;
-    yinput_event.type  = input_event.type;
-    yinput_event.code  = input_event.code;
-    yinput_event.value = input_event.value;
-
-    if(initial)
-    {
-      initial = false;
-      prev_time = input_event.time;
     }
-    yinput_event.delay = time_subtract(prev_time, input_event.time);
-    prev_time = input_event.time;
 
-    fwrite(&yinput_event, sizeof yinput_event, 1, file);
-    fflush(file);
+    for(uint8_t i=0; i<nfds; ++i)
+    {
+      if(fds[i].revents == 0)
+        continue;
+
+      for(;;)
+      {
+        struct input_event input_event;
+        if(read(fds[i].fd, &input_event, sizeof input_event) == -1)
+        {
+          if(errno == EWOULDBLOCK || errno == EAGAIN)
+            break;
+
+          fprintf(stderr, "ERROR: read() failed: %s\n", strerror(errno));
+          return -1;
+        }
+
+        struct entry entry;
+        memset(&entry, 0, sizeof entry);
+        entry.device_no   = i;
+        entry.input_event = input_event;
+
+        if(write(fd, &entry, sizeof entry) == -1) {
+          fprintf(stderr, "ERROR: write() failed: %s\n", strerror(errno));
+          return -1;
+        }
+      }
+    }
   }
 }
 
