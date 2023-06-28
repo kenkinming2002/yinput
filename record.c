@@ -28,7 +28,7 @@ static uint64_t time_subtract(struct timeval x, struct timeval y)
     y.tv_usec -= tmp;
   }
 
-  return (y.tv_sec * 1000000 + y.tv_usec) - (x.tv_sec * 1000000 + x.tv_usec);
+  return ((uint64_t)y.tv_sec * (uint64_t)1000000 + (uint64_t)y.tv_usec) - ((uint64_t)x.tv_sec * (uint64_t)1000000 + (uint64_t)x.tv_usec);
 }
 
 int record(const char *device_path, const char *file_path)
