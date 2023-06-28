@@ -1,5 +1,5 @@
-CFLAGS += $(shell pkg-config --cflags libudev libinput libevdev)
-LIBS   += $(shell pkg-config --libs   libudev libinput libevdev)
+CFLAGS += $(shell pkg-config --cflags libevdev)
+LIBS   += $(shell pkg-config --libs   libevdev)
 
 DESTDIR ?= /usr/local
 
