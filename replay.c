@@ -41,8 +41,8 @@ int replay(const char *device_path, const char *file_path)
   while(fread(&yinput_event, sizeof yinput_event, 1, file) == 1)
   {
     struct timespec ts;
-    ts.tv_sec  = 0;
-    ts.tv_nsec = yinput_event.delay * 1000;
+    ts.tv_sec  = yinput_event.delay / 1000000;
+    ts.tv_nsec = (yinput_event.delay % 1000000) * 1000;
     nanosleep(&ts, NULL);
 
     libevdev_uinput_write_event(uidev, yinput_event.type, yinput_event.code, yinput_event.value);
