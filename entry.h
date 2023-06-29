@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <linux/input.h>
 
-struct entry
+struct __attribute__((packed)) entry
 {
   uint8_t  device;
   uint16_t type;
