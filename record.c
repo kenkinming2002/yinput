@@ -77,8 +77,12 @@ int record(const char *file_path)
 
         struct entry entry;
         memset(&entry, 0, sizeof entry);
-        entry.device_no   = i;
-        entry.input_event = input_event;
+        entry.device   = i;
+        entry.type  = input_event.type;
+        entry.code  = input_event.code;
+        entry.value = input_event.value;
+        entry.time  = (uint64_t)input_event.time.tv_sec  * (uint64_t)1000000000
+                    + (uint64_t)input_event.time.tv_usec * (uint64_t)1000;
 
         if(write(fd, &entry, sizeof entry) == -1) {
           fprintf(stderr, "ERROR: write() failed: %s\n", strerror(errno));
