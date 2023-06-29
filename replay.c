@@ -3,6 +3,7 @@
 #include <libevdev/libevdev.h>
 #include <libevdev/libevdev-uinput.h>
 
+#include <assert.h>
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -47,20 +48,12 @@ static struct timespec timeval_to_timespec(struct timeval val)
 static int entry_cmp(const void *_first, const void *_second)
 {
   const struct entry *first = _first, *second = _second;
-
-  if(first->input_event.time.tv_sec < second->input_event.time.tv_sec)
+  if(first->time < second->time)
     return -1;
-
-  if(first->input_event.time.tv_sec > second->input_event.time.tv_sec)
+  else if(first->time > second->time)
     return 1;
-
-  if(first->input_event.time.tv_usec < second->input_event.time.tv_usec)
-    return -1;
-
-  if(first->input_event.time.tv_usec > second->input_event.time.tv_usec)
-    return 1;
-
-  return 0;
+  else
+    return 0;
 }
 
 int replay(const char *file_path)
@@ -132,22 +125,23 @@ int replay(const char *file_path)
   {
     if(i != 0)
     {
-      struct timespec delay = timeval_to_timespec(timeval_subtract(entries[i].input_event.time, entries[i-1].input_event.time));
-      if(nanosleep(&delay, NULL) == -1) {
+      assert(entries[i].time >= entries[i-1].time);
+      uint64_t delay = entries[i].time - entries[i-1].time;
+
+      struct timespec ts;
+      ts.tv_sec  = delay / 1000000000;
+      ts.tv_nsec = delay % 1000000000;
+      if(nanosleep(&ts, NULL) == -1) {
         fprintf(stderr, "ERROR: nanosleep() failed: %s\n", strerror(errno));
         return -1;
       }
 
       int status;
-      if((status = libevdev_uinput_write_event(uinputs[entries[i].device_no],
-        entries[i].input_event.type,
-        entries[i].input_event.code,
-        entries[i].input_event.value
-      )) != 0) {
+      if((status = libevdev_uinput_write_event(uinputs[entries[i].device], entries[i].type, entries[i].code, entries[i].value)) != 0) {
         fprintf(stderr, "ERROR: failed to inject event via uinput: %s\n", strerror(-status));
-        fprintf(stderr, "ERROR: event type  = %u\n", entries[i].input_event.type);
-        fprintf(stderr, "ERROR: event code  = %u\n", entries[i].input_event.code);
-        fprintf(stderr, "ERROR: event value = %d\n", entries[i].input_event.value);
+        fprintf(stderr, "ERROR: event type  = %u\n", entries[i].type);
+        fprintf(stderr, "ERROR: event code  = %u\n", entries[i].code);
+        fprintf(stderr, "ERROR: event value = %d\n", entries[i].value);
         fprintf(stderr, "ERROR: Maybe your input file is corrupted?\n");
         return -1;
       }
